@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- Loading datatables, a JS library from the CDN -->
+  <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.css">
+  <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.js"></script>
+  
+<script>
+google.script.run.withSuccessHandler(showData).getData();
+
+function showData(dataArray) {
+    console.log(dataArray); // Log data to check the returned value
+
+    $(document).ready(function() {
+        var table = $('#table-data').DataTable({
+            data: dataArray,
+            columns: [
+                { "title": "PROJECT" },
+                { "title": "LOT CODE" },
+                { "title": "CONTRACT" },
+                { "title": "SALES DATE" },
+                { "title": "VECINO" },
+                { "title": "PAYMENT SCHEME" },
+                { "title": "CONTACT PRICE" },
+                { "title": "VAT" },
+                { "title": "TOTAL PACKAGE PRICE" },
+                { "title": "HOUSE POC" },
+                { "title": "LOT POC" },
+                {
+                    "title": "Monthly Amortization",
+                    "render": function(data, type, row, meta) {
+                        return `<input type="number" class="monthly-amortization" data-row="${meta.row}" value="${data || 0}" step="0.01" min="0">`;
+                    }
+                },
+                {
+                    "title": "Number of Payments",
+                    "render": function(data, type, row, meta) {
+                        return `<button class="decrease-payment" data-row="${meta.row}">-</button>
+                                <span class="payment-count" data-row="${meta.row}">${data || 0}</span>
+                                <button class="increase-payment" data-row="${meta.row}">+</button>`;
+                    }
+                },
+                {
+                    "title": "Balance",
+                    "render": function(data, type, row, meta) {
+                        return `<span class="balance" data-row="${meta.row}">${data || 0.00}</span>`;
+                    }
+                },
+                // Monthly columns with subcolumns
+                // Repeat for each month (12 months in total)
+                { "title": "Month 1 Status", "render": function(data, type, row, meta) { return `<select class="status" data-row="${meta.row}" data-month="0">
+                  <option value="">Select Status</option>
+                  <option value="Successful">Successful</option>
+                  <option value="Unsuccessful">Unsuccessful</option>
+                </select>`; }},
+                { "title": "Month 1 Ref No.", "render": function(data, type, row, meta) { return `<input type="text" class="reference-no" data-row="${meta.row}" data-month="0" value="${data || ''}">`; }},
+                { "title": "Month 1 Remarks", "render": function(data, type, row, meta) { return `<input type="text" class="remarks" data-row="${meta.row}" data-month="0" value="${data || ''}">`; }},
+                { "title": "Month 1 Redebit", "render": function(data, type, row, meta) { return `<input type="text" class="red-debit" data-row="${meta.row}" data-month="0" value="${data || ''}">`; }},
+                // Repeat for other months
+            ],
+            "drawCallback": function() {
+                // Ensure inputs are not cleared by DataTables redraw
+                $('.status').each(function() {
+                    $(this).val($(this).data('value') || '');
+                });
+                $('.reference-no').each(function() {
+                    $(this).val($(this).data('value') || '');
+                });
+                $('.remarks').each(function() {
+                    $(this).val($(this).data('value') || '');
+                });
+                $('.red-debit').each(function() {
+                    $(this).val($(this).data('value') || '');
+                });
+            }
+        });
+
+        function updateBalance(rowIdx) {
+            var table = $('#table-data').DataTable();
+            var rowData = table.row(rowIdx).data();
+
+            var totalPackagePriceString = rowData[8] || '0';
+            var totalPackagePrice = parseFloat(totalPackagePriceString.replace(/,/g, '')) || 0;
+
+            var monthlyAmortization = parseFloat($(`.monthly-amortization[data-row="${rowIdx}"]`).val()) || 0;
+            var numberOfPayments = parseInt($(`.payment-count[data-row="${rowIdx}"]`).text(), 10) || 0;
+
+            var balance = totalPackagePrice - (monthlyAmortization * numberOfPayments);
+            $(`.balance[data-row="${rowIdx}"]`).text(balance.toFixed(2)); // Show balance with 2 decimal places
+
+            // Send updated balance to the server
+            google.script.run.updateRow(rowIdx, monthlyAmortization, numberOfPayments, balance, getMonthlyData(rowIdx));
+        }
+
+        function getMonthlyData(rowIdx) {
+            var monthData = [];
+            for (var month = 0; month < 12; month++) {
+                var status = $(`.status[data-row="${rowIdx}"][data-month="${month}"]`).val();
+                var referenceNo = $(`.reference-no[data-row="${rowIdx}"][data-month="${month}"]`).val();
+                var remarks = $(`.remarks[data-row="${rowIdx}"][data-month="${month}"]`).val();
+                var redDebit = $(`.red-debit[data-row="${rowIdx}"][data-month="${month}"]`).val();
+                monthData.push({ status, referenceNo, remarks, redDebit });
+            }
+            return monthData;
+        }
+
+        $('#table-data').on('input', '.monthly-amortization, .reference-no, .remarks, .red-debit', function() {
+            var rowIdx = $(this).data('row');
+            updateBalance(rowIdx);
+        });
+
+        $('#table-data').on('click', '.increase-payment, .decrease-payment', function() {
+            var rowIdx = $(this).data('row');
+            var paymentCountElem = $(`.payment-count[data-row="${rowIdx}"]`);
+            var currentCount = parseInt(paymentCountElem.text(), 10);
+            if ($(this).hasClass('increase-payment')) {
+                paymentCountElem.text(currentCount + 1);
+            } else {
+                if (currentCount > 0) {
+                    paymentCountElem.text(currentCount - 1);
+                }
+            }
+            updateBalance(rowIdx);
+        });
+
+        $('#table-data').on('change', '.status', function() {
+            var rowIdx = $(this).data('row');
+            updateBalance(rowIdx);
+        });
+    });
+}
+</script>
+
+  <title>Active Accounts Report</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      font-size: 16px;
+      color: #333;
+    }
+
+    #table-data {
+      font-family: 'Arial', sans-serif;
+      font-size: 14px;
+    }
+
+    #table-data thead th {
+      background-color: #c71585;
+      font-family: 'Arial', sans-serif;
+      font-size: 16px;
+      color: #fff;
+    }
+
+    #table-data tbody tr {
+      border-bottom: 1px solid #ddd;
+    }
+
+    #table-data tbody td {
+      padding: 8px;
+    }
+
+    .monthly-amortization {
+      width: 120px;
+    }
+
+    .increase-payment, .decrease-payment {
+      cursor: pointer;
+      padding: 5px;
+      margin: 2px;
+    }
+
+    .payment-count {
+      width: 40px;
+      text-align: center;
+    }
+    
+    .balance {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Active Accounts Report</h1>
+  <div>
+    <table id="table-data" class="display">
+      <!-- DataTables will populate this table -->
+    </table>
+  </div>
+</body>
+</html>
