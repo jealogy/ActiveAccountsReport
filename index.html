@@ -48,7 +48,6 @@ function showData(dataArray) {
                     }
                 },
                 // Monthly columns with subcolumns
-                // Repeat for each month (12 months in total)
                 { "title": "Month 1 Status", "render": function(data, type, row, meta) { return `<select class="status" data-row="${meta.row}" data-month="0">
                   <option value="">Select Status</option>
                   <option value="Successful">Successful</option>
@@ -60,7 +59,6 @@ function showData(dataArray) {
                 // Repeat for other months
             ],
             "drawCallback": function() {
-                // Ensure inputs are not cleared by DataTables redraw
                 $('.status').each(function() {
                     $(this).val($(this).data('value') || '');
                 });
