@@ -5,7 +5,7 @@ function doGet() {
 
 function getData() {
   var spreadSheetId = "18XesslVcAD3VfuNaVVl5WRDvh2zOhvQtPjdQe_BiUPg";
-  var dataRange = "Sheet1!A2:AX"; // Adjust to include all necessary columns
+  var dataRange = "Sheet1!A2:AX"; 
   
   var range = Sheets.Spreadsheets.Values.get(spreadSheetId, dataRange);
   var values = range.values;
